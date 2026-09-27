@@ -1,146 +1,117 @@
-# EduGenie - AI Study Assistant - Full Version
-# Fixed for Render Deployment + JSON Error + Model Error
 import os
-import re
-import json
-import uuid
-import logging
 from pathlib import Path
-from datetime import datetime
-from typing import Optional
-
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from dotenv import load_dotenv
-from werkzeug.utils import secure_filename
-
-# Google Generative AI - New SDK
 from google import genai
 from google.genai import types
-
-# For File Reading
 import PyPDF2
-try:
-    import docx
-except ImportError:
-    docs = None
+import logging
 
-# =========================================================
-# LOAD ENVIRONMENT VARIABLES
-# =========================================================
 load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-FLASK_SECRET = os.getenv("FLASK_SECRET_KEY", "edugenie-secret-2024")
-
-# Setup Logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# =========================================================
-# GEMINI CLIENT SETUP - FIXED MODEL NAME
-# =========================================================
-client = None
-if GEMINI_API_KEY:
-    try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        logger.info("Gemini Client Initialized Successfully")
-    except Exception as e:
-        logger.error(f"Failed to init Gemini Client: {e}")
-        client = None
-else:
-    logger.warning("GEMINI_API_KEY is missing in.env")
+API_KEY = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=API_KEY) if API_KEY else None
+MODEL = "gemini-1.5-flash"
 
-# *** IMPORTANT FIX - This was the 503 error ***
-# Old model: gemini-3.8-Flash (does not exist)
-# New Fixed Models - Try in order
-MODEL_PRIMARY = "gemini-1.5-flash"
-MODEL_FALLBACK = "gemini-1.5-flash-latest"
-MODEL_BACKUP = "gemini-2.0-flash-exp"
-
-def get_model_name():
-    """Return working model name"""
-    return MODEL_PRIMARY
-
-# =========================================================
-# FLASK APP SETUP
-# =========================================================
 app = Flask(__name__)
-app.secret_key = FLASK_SECRET
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
-BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_FOLDER = BASE_DIR / "uploads"
-UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-ALLOWED_EXTENSIONS = {'pdf', 'txt', 'docx', 'doc'}
+BASE_DIR = Path(__file__).parent
+(UPLOAD_FOLDER := BASE_DIR / "uploads").mkdir(exist_ok=True)
 
-app.config['UPLOAD_FOLDER'] = str(UPLOAD_FOLDER)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB
+doc_text = ""
+doc_name = ""
 
-# Global variable to store document context
-document_store = {
-    "text": "",
-    "filename": "",
-    "upload_time": "",
-    "chunks": []
-}
-
-# =========================================================
-# HELPER FUNCTIONS
-# =========================================================
-
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def extract_text_from_pdf(file_path):
-    """Extract text from PDF file"""
-    text = ""
+def extract_pdf(path):
+    txt=""
     try:
-        with open(file_path, "rb") as f:
-            reader = PyPDF2.PdfReader(f)
-            for page_num, page in enumerate(reader.pages):
-                try:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-                except Exception as e:
-                    logger.warning(f"Failed to extract page {page_num}: {e}")
-                    continue
-        return text
+        r=PyPDF2.PdfReader(open(path,"rb"))
+        for p in r.pages:
+            t=p.extract_text()
+            if t: txt+=t+"\n"
     except Exception as e:
-        logger.error(f"PDF extraction error: {e}")
-        return ""
+        print(e)
+    return txt
 
-def extract_text_from_docx(file_path):
-    """Extract text from DOCX file"""
-    text = ""
+def extract_txt(path):
+    for enc in ['utf-8','latin-1']:
+        try:
+            return open(path,'r',encoding=enc).read()
+        except: continue
+    return ""
+
+def ask_gemini(prompt):
+    if not client:
+        return "API Key missing"
     try:
-        doc = docx.Document(file_path)
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-        return text
+        res = client.models.generate_content(
+            model=MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.7, max_output_tokens=2048)
+        )
+        return res.text
     except Exception as e:
-        logger.error(f"DOCX extraction error: {e}")
-        return ""
+        err=str(e)
+        if "503" in err or "overload" in err.lower():
+            return "⚠️ Google AI busy, 30 sec kazhichu try pannu"
+        return f"Error: {err}"
 
-def extract_text_from_txt(file_path):
-    """Extract text from TXT file"""
-    text = ""
-    try:
-        # Try multiple encodings
-        for encoding in ['utf-8', 'latin-1', 'cp1252']:
-            try:
-                with open(file_path, "r", encoding=encoding) as f:
-                    text = f.read()
-                break
-            except UnicodeDecodeError:
-                continue
-        return text
-    except Exception as e:
-        logger.error(f"TXT extraction error: {e}")
-        return ""
+@app.route('/')
+def home():
+    return render_template('index.html')
 
-def extract_text_from_file(file_path):
-    """Main extractor - detects file type"""
-    file_path = str
+@app.route('/upload', methods=['POST'])
+def upload():
+    global doc_text, doc_name
+    if 'file' not in request.files:
+        return jsonify({"success":False,"message":"No file"})
+    f=request.files['file']
+    if not f.filename:
+        return jsonify({"success":False,"message":"No filename"})
+    path=os.path.join(UPLOAD_FOLDER, f.filename)
+    f.save(path)
+    if path.endswith(".pdf"):
+        doc_text=extract_pdf(path)
+    else:
+        doc_text=extract_txt(path)
+    doc_name=f.filename
+    if len(doc_text)<10:
+        return jsonify({"success":False,"message":"Text extract panna mudiyala"})
+    return jsonify({"success":True,"message":f"{f.filename} uploaded!","filename":f.filename})
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data=request.get_json()
+    q=data.get('message','').strip()
+    if not q:
+        return jsonify({"response":"Question enter pannu"})
+    if doc_text:
+        prompt=f"Document ({doc_name}):\n{doc_text[:7000]}\n\nQuestion: {q}\nAnswer simply:"
+    else:
+        prompt=f"You are EduGenie AI assistant. Answer: {q}"
+    ans=ask_gemini(prompt)
+    return jsonify({"response":ans,"answer":ans})
+
+@app.route('/quiz', methods=['POST'])
+def quiz():
+    if doc_text:
+        prompt=f"From this:\n{doc_text[:5000]}\nCreate 5 MCQ with answer"
+    else:
+        prompt="Create 5 TNPSC GK MCQ with 4 options and answer"
+    return jsonify({"quiz":ask_gemini(prompt),"response":ask_gemini(prompt)})
+
+@app.route('/summary', methods=['POST'])
+def summary():
+    if not doc_text:
+        return jsonify({"summary":"Upload document first"})
+    prompt=f"Summarize in points:\n{doc_text[:7000]}"
+    return jsonify({"summary":ask_gemini(prompt)})
+
+@app.route('/health')
+def health():
+    return jsonify({"status":"ok","model":MODEL,"has_doc":bool(doc_text)})
+
+if __name__=='__main__':
+    app.run(host='0.0.0.0', port=int(os.getenv("PORT",5000)))
