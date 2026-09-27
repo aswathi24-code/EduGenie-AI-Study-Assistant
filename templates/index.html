@@ -347,6 +347,28 @@
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const fileInput = document.querySelector('input[type="file"]');
+  if (fileInput) {
+    fileInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        // file name-a kaamikurathuku
+        let display = document.getElementById('file-name-display');
+        if (!display) {
+          display = document.createElement('p');
+          display.id = 'file-name-display';
+          display.style.color = 'green';
+          display.style.marginTop = '10px';
+          display.style.fontWeight = 'bold';
+          fileInput.parentNode.appendChild(display);
+        }
+        display.textContent = '✅ Selected: ' + this.files[0].name;
+      }
+    });
+  }
+});
+</script>    
 </body>
 
 </html>
