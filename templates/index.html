@@ -345,7 +345,28 @@
     <!-- SCRIPT -->
     <!-- ============================= -->
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+   <script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('upload-form');
+  const fileInput = document.querySelector('input[type="file"]');
+  if(form){
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      if(!fileInput.files[0]){ alert('Select file!'); return; }
+      let fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      document.body.innerHTML += '<p id="status">Uploading...</p>';
+      try{
+        let res = await fetch('/upload',{method:'POST', body:fd});
+        let data = await res.json();
+        alert(data.message);
+        document.getElementById('status').innerText = data.success? '✅ '+data.message : '❌ '+data.message;
+        location.reload();
+      }catch(err){ alert('Upload failed: '+err); }
+    });
+  }
+});
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
