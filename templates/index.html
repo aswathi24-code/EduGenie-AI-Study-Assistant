@@ -1,103 +1,100 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EduGenie - AI Learning Assistant</title>
+<title>EduGenie - AI Study Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { font-family: Arial; max-width: 800px; margin: auto; padding: 20px; background: #f5f5f5; }
-header { background: #4a6cf7; color: white; padding: 20px; text-align: center; border-radius: 10px; }
-.card { background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 5px #ccc; }
-button { background: #4a6cf7; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
-button:hover { background: #3a5ce5; }
-input[type="file"] { margin: 10px 0; }
-#status { margin-top: 10px; font-weight: bold; }
+body{font-family:Arial; max-width:800px; margin:20px auto; padding:15px; background:#f0f2f5;}
+.card{background:white; padding:20px; border-radius:12px; margin-bottom:15px; box-shadow:0 2px 8px #ccc;}
+button{background:#6c5ce7; color:white; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; margin:5px; font-size:15px;}
+button:hover{background:#5a4bd1;}
+input, textarea{width:100%; padding:10px; margin:8px 0; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;}
+.tab{overflow:hidden; background:white; border-radius:10px 10px 0 0; display:flex;}
+.tab button{flex:1; background:#ddd; color:black; border-radius:0;}
+.tab button.active{background:#6c5ce7; color:white;}
+.tabcontent{display:none; padding:20px; background:white; border-radius:0 0 10px 10px;}
+#answer, #quiz-box, #summary-box{white-space:pre-wrap; background:#eef2ff; padding:15px; border-radius:8px; min-height:50px; margin-top:10px;}
 </style>
 </head>
 <body>
-
-<header class="header">
-<h1>📚 EduGenie</h1>
-<p>AI Learning Assistant for TNPSC & All Exams</p>
-</header>
+<h1>🎓 EduGenie - AI Study Assistant</h1>
 
 <div class="card">
-<h3>📤 Upload Document</h3>
-<form id="upload-form">
-<input type="file" id="file-input" name="file" accept=".pdf,.txt" required>
-<button type="submit">Upload Document</button>
-</form>
+<h3>📄 Upload Document</h3>
+<input type="file" id="file-input" accept=".pdf,.txt,.docx">
+<button onclick="uploadFile()">Upload</button>
 <p id="upload-status"></p>
-<p id="file-name-display"></p>
 </div>
 
-<div class="card">
-<h3>💬 Ask Question</h3>
-<input type="text" id="question" placeholder="Ask anything from your document..." style="width:70%; padding:10px;">
-<button onclick="askQuestion()">Ask</button>
-<div id="answer" style="margin-top:15px;"></div>
+<div class="tab">
+<button class="tablinks active" onclick="openTab(event,'Chat')">💬 Chat</button>
+<button class="tablinks" onclick="openTab(event,'Quiz')">📝 Quiz</button>
+<button class="tablinks" onclick="openTab(event,'Summary')">📚 Summary</button>
 </div>
 
-<div class="card">
-<button onclick="clearDocs()">🗑️ Clear All Documents</button>
-<button onclick="useSample()">📄 Use Sample Document</button>
+<div id="Chat" class="tabcontent" style="display:block;">
+<h3>Ask Anything</h3>
+<input type="text" id="question" placeholder="Ask from document or any general question...">
+<button onclick="askQuestion()">Ask AI</button>
+<div id="answer">Answer will appear here...</div>
+</div>
+
+<div id="Quiz" class="tabcontent">
+<h3>Generate Quiz</h3>
+<button onclick="generateQuiz()">Generate 5 Questions</button>
+<div id="quiz-box">Quiz will appear here...</div>
+</div>
+
+<div id="Summary" class="tabcontent">
+<h3>Document Summary</h3>
+<button onclick="generateSummary()">Summarize Document</button>
+<div id="summary-box">Summary will appear here...</div>
 </div>
 
 <script>
-// File name display
-document.querySelector('input[type="file"]').addEventListener('change', function(){
-  if(this.files && this.files[0]){
-    document.getElementById('file-name-display').innerHTML = '✅ Selected: ' + this.files[0].name;
-    document.getElementById('file-name-display').style.color = 'green';
-  }
-});
-
-// Upload
-document.getElementById('upload-form').addEventListener('submit', async function(e){
-  e.preventDefault();
-  const fileInput = document.getElementById('file-input');
-  if(!fileInput.files[0]){ alert('Please select a file'); return; }
-  const fd = new FormData();
-  fd.append('file', fileInput.files[0]);
-  document.getElementById('upload-status').innerText = '⏳ Uploading... Please wait...';
+function openTab(evt, name){
+  document.querySelectorAll(".tabcontent").forEach(c=>c.style.display="none");
+  document.querySelectorAll(".tablinks").forEach(b=>b.classList.remove("active"));
+  document.getElementById(name).style.display="block";
+  evt.currentTarget.classList.add("active");
+}
+async function uploadFile(){
+  const f=document.getElementById('file-input').files[0];
+  if(!f){alert('Select file');return;}
+  const fd=new FormData(); fd.append('file',f);
+  document.getElementById('upload-status').innerText='⏳ Uploading...';
   try{
-    const res = await fetch('/upload', {method:'POST', body:fd});
-    const data = await res.json();
-    if(data.success){
-      document.getElementById('upload-status').innerText = '✅ ' + data.message + ' - ' + data.characters + ' chars';
-      alert('Success: ' + data.filename + ' uploaded!');
-    }else{
-      document.getElementById('upload-status').innerText = '❌ ' + data.message;
-      alert('Error: ' + data.message);
-    }
-  }catch(err){
-    document.getElementById('upload-status').innerText = '❌ Failed: ' + err;
-    alert('Upload failed');
-  }
-});
-
+    const res=await fetch('/upload',{method:'POST',body:fd});
+    const data=await res.json();
+    document.getElementById('upload-status').innerText=data.success?'✅ '+data.message:'❌ '+data.message;
+  }catch(e){document.getElementById('upload-status').innerText='❌ Failed';}
+}
 async function askQuestion(){
-  const q = document.getElementById('question').value;
-  if(!q){ alert('Enter question'); return; }
-  document.getElementById('answer').innerText = '⏳ Thinking...';
-  const res = await fetch('/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question:q})});
-  const data = await res.json();
-  document.getElementById('answer').innerText = data.answer || data.message;
+  const q=document.getElementById('question').value;
+  if(!q){alert('Enter question');return;}
+  document.getElementById('answer').innerText='⏳ Thinking...';
+  try{
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q})});
+    const data=await res.json();
+    document.getElementById('answer').innerText=data.response||data.answer||data.message||JSON.stringify(data);
+  }catch(e){document.getElementById('answer').innerText='❌ Error: '+e;}
 }
-
-async function clearDocs(){
-  if(!confirm('Clear all docs?')) return;
-  const res = await fetch('/clear', {method:'POST'});
-  const data = await res.json();
-  alert(data.message);
+async function generateQuiz(){
+  document.getElementById('quiz-box').innerText='⏳ Generating Quiz...';
+  try{
+    const res=await fetch('/quiz',{method:'POST'});
+    const data=await res.json();
+    document.getElementById('quiz-box').innerText=data.quiz||data.response||data.message||JSON.stringify(data);
+  }catch(e){document.getElementById('quiz-box').innerText='❌ Error: '+e;}
 }
-
-async function useSample(){
-  const res = await fetch('/use-sample', {method:'POST'});
-  const data = await res.json();
-  alert(data.message);
+async function generateSummary(){
+  document.getElementById('summary-box').innerText='⏳ Summarizing...';
+  try{
+    const res=await fetch('/summary',{method:'POST'});
+    const data=await res.json();
+    document.getElementById('summary-box').innerText=data.summary||data.response||data.message||JSON.stringify(data);
+  }catch(e){document.getElementById('summary-box').innerText='❌ Error: '+e;}
 }
 </script>
-
 </body>
 </html>
