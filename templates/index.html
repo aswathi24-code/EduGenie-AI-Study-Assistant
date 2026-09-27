@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>EduGenie - AI Learning Assistant</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+
+<body>
+
+    <!-- ============================= -->
+    <!-- HEADER -->
+    <!-- ============================= -->
+
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="logo">
+                🎓
+            </div>
+
+            <div>
+                <h1>EduGenie</h1>
+                <p>Google Gemini Powered Learning Assistant</p>
+            </div>
+
+        </div>
+
+        <div class="status">
+
+            <span class="status-dot"></span>
+
+            AI Assistant Online
+
+        </div>
+
+    </header>
+
+
+    <!-- ============================= -->
+    <!-- MAIN CONTAINER -->
+    <!-- ============================= -->
+
+    <main class="container">
+
+
+        <!-- ============================= -->
+        <!-- SIDEBAR -->
+        <!-- ============================= -->
+
+        <aside class="sidebar">
+
+
+            <div class="sidebar-title">
+
+                <h2>Study Tools</h2>
+
+                <p>
+                    Learn smarter with AI
+                </p>
+
+            </div>
+
+
+            <!-- Upload -->
+
+            <div class="upload-box">
+
+                <div class="upload-icon">
+                    📚
+                </div>
+
+                <h3>Upload Study Material</h3>
+
+                <p>
+                    Upload PDF or TXT files
+                </p>
+
+                <label for="fileInput" class="upload-button">
+
+                    Choose File
+
+                </label>
+
+                <input
+                    type="file"
+                    id="fileInput"
+                    accept=".pdf,.txt"
+                    hidden
+                >
+
+                <div id="fileName" class="file-name">
+                    No file selected
+                </div>
+
+                <button
+                    id="uploadButton"
+                    class="primary-button"
+                >
+                    Upload Document
+                </button>
+
+            </div>
+
+
+            <!-- Current Document -->
+
+            <div class="document-card">
+
+                <h3>Current Document</h3>
+
+                <div id="documentStatus">
+
+                    <span class="empty-icon">
+                        📄
+                    </span>
+
+                    <p>
+                        No document uploaded
+                    </p>
+
+                </div>
+
+                <button
+                    id="clearButton"
+                    class="danger-button"
+                    style="display:none;"
+                >
+                    Clear Document
+                </button>
+
+            </div>
+
+
+            <!-- Tools -->
+
+            <div class="tool-buttons">
+
+                <button id="summaryButton">
+
+                    📝 Generate Summary
+
+                </button>
+
+                <button id="quizButton">
+
+                    🧠 Generate Quiz
+
+                </button>
+
+            </div>
+
+
+        </aside>
+
+
+        <!-- ============================= -->
+        <!-- CHAT AREA -->
+        <!-- ============================= -->
+
+        <section class="chat-section">
+
+
+            <!-- Welcome -->
+
+            <div id="welcomeScreen" class="welcome-screen">
+
+                <div class="welcome-icon">
+                    ✨
+                </div>
+
+                <h2>
+                    Welcome to EduGenie!
+                </h2>
+
+                <p>
+                    Your AI-powered learning companion.
+                    Upload your study material and ask questions.
+                </p>
+
+
+                <div class="feature-grid">
+
+                    <div class="feature-card">
+
+                        <div class="feature-icon">
+                            💬
+                        </div>
+
+                        <h3>Ask Questions</h3>
+
+                        <p>
+                            Ask questions about your subjects
+                            and get simple explanations.
+                        </p>
+
+                    </div>
+
+
+                    <div class="feature-card">
+
+                        <div class="feature-icon">
+                            📖
+                        </div>
+
+                        <h3>Summarize</h3>
+
+                        <p>
+                            Convert long study material
+                            into easy notes.
+                        </p>
+
+                    </div>
+
+
+                    <div class="feature-card">
+
+                        <div class="feature-icon">
+                            🧠
+                        </div>
+
+                        <h3>Practice Quiz</h3>
+
+                        <p>
+                            Generate multiple-choice questions
+                            from your study material.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Messages -->
+
+            <div
+                id="chatMessages"
+                class="chat-messages"
+            >
+
+            </div>
+
+
+            <!-- Loading -->
+
+            <div
+                id="loading"
+                class="loading"
+                style="display:none;"
+            >
+
+                <div class="typing">
+
+                    <span></span>
+                    <span></span>
+                    <span></span>
+
+                </div>
+
+                <span>
+                    EduGenie is thinking...
+                </span>
+
+            </div>
+
+
+            <!-- Input -->
+
+            <div class="input-area">
+
+                <textarea
+                    id="messageInput"
+                    placeholder="Ask EduGenie anything..."
+                    rows="1"
+                ></textarea>
+
+
+                <button
+                    id="sendButton"
+                    class="send-button"
+                >
+
+                    ➤
+
+                </button>
+
+            </div>
+
+
+            <p class="input-hint">
+
+                Press Enter to send • Shift + Enter for new line
+
+            </p>
+
+
+        </section>
+
+    </main>
+
+
+    <!-- ============================= -->
+    <!-- QUIZ MODAL -->
+    <!-- ============================= -->
+
+    <div
+        id="quizModal"
+        class="modal"
+    >
+
+        <div class="modal-content">
+
+            <button
+                id="closeQuiz"
+                class="close-button"
+            >
+                ×
+            </button>
+
+            <h2>
+                🧠 EduGenie Quiz
+            </h2>
+
+            <div id="quizContent">
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ============================= -->
+    <!-- SCRIPT -->
+    <!-- ============================= -->
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+
+</body>
+
+</html>
