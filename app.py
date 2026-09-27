@@ -20,7 +20,10 @@ from google.genai import types
 
 # For File Reading
 import PyPDF2
-import docx
+try:
+    import docx
+except ImportError:
+    docs = None
 
 # =========================================================
 # LOAD ENVIRONMENT VARIABLES
